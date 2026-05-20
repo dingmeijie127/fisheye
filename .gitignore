@@ -1,0 +1,16 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# IDE
+.idea/
+
+# Data / results
+calibrator/data/
+# 如果你只想忽略结果，不想忽略整个 data 目录，就改成：
+# calibrator/data/results/
+
+# 其他
+.DS_Store
