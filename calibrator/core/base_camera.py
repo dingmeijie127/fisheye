@@ -2,6 +2,37 @@ from abc import ABC, abstractmethod
 import numpy as np
 from typing import List, Tuple, Optional
 
+def create_camera_from_dict(data: dict) -> 'BaseCamera':
+    """相机工厂：根据字典中的 model_type 动态实例化相机"""
+    model_type = data.get("model_type")
+
+    # 延迟导入，避免循环引用
+    from calibrator.models.DS import DoubleSphereCamera
+    from calibrator.models.eucm import EUCMCamera
+    from calibrator.models.fisheye import FisheyeCamera
+    from calibrator.models.omnidirCamera import OmnidirCamera
+    from calibrator.models.pinhole import PinholeCamera
+
+    # 注册你的所有相机模型
+    CAMERA_REGISTRY = {
+        "DoubleSphereCamera": DoubleSphereCamera,
+        "EUCMCamera": EUCMCamera,
+        "FisheyeCamera": FisheyeCamera,
+        "OmnidirCamera": OmnidirCamera,
+        "PinholeCamera": PinholeCamera
+    }
+
+    if model_type not in CAMERA_REGISTRY:
+        raise ValueError(f"未知的相机模型: {model_type}，请在工厂类中注册！")
+
+    # 1. 动态实例化对应类的对象 (不需要传参，使用默认初值初始化)
+    cam_instance = CAMERA_REGISTRY[model_type]()
+
+    # 2. 调用基类的 from_dict 填入真实的标定参数
+    cam_instance.from_dict(data)
+
+    return cam_instance
+
 class BaseCamera(ABC):
     """
     终极版相机基类：采用声明式参数注册。

@@ -27,6 +27,8 @@ def run_calibration_flow():
         tag_size=0.055,
         tag_spacing=0.0165
     )
+    save_dir = "../calibrator/data/results"
+    os.makedirs(save_dir, exist_ok=True)
 
     img_pairs = glob_images_pairs("/mnt/d/data/fisheye/images/back", "left*.bmp")
     # img_pairs = glob_images_pairs("/mnt/d/data/P300下/fisheye/116/new/GDU9PZ22P300A25M0116/144250_下双目/calibdata", "left*.bmp")
@@ -41,6 +43,7 @@ def run_calibration_flow():
     # debug_vis 建议先关掉，不然会非常慢；需要看点再开
     mono_l.load_data_and_initialize(left_imgs, debug_vis=False)
     mono_l.optimize(use_sparse_jac=True, loss="soft_l1", f_scale=2.0, max_nfev=200)
+    mono_l.save_results(os.path.join(save_dir, "mono_left_calib_result.yaml"))
 
     # 2) Mono Right
     print("\n--- Step 2: Mono Right ---")
@@ -48,6 +51,7 @@ def run_calibration_flow():
     mono_r = MonoCalibratorEngine(cam_r, target)
     mono_r.load_data_and_initialize(right_imgs, debug_vis=False)
     mono_r.optimize(use_sparse_jac=True, loss="soft_l1", f_scale=2.0, max_nfev=200)
+    mono_r.save_results(os.path.join(save_dir, "mono_left_calib_result.yaml"))
 
     # 3) Stereo
     print("\n--- Step 3: Stereo Pose Initialization ---")
@@ -75,8 +79,7 @@ def run_calibration_flow():
     # 5) Visualize
     # stereo_engine.visualize_reprojection(error_scale=5.0)
 
-    save_dir = "../calibrator/data/results"
-    os.makedirs(save_dir, exist_ok=True)
+
 
     result_path = os.path.join(save_dir, "stereo_ds_calib_result.json")
     stereo_engine.save_results(result_path)

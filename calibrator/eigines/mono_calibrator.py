@@ -2,6 +2,8 @@ import cv2
 import numpy as np
 import os
 import scipy.sparse as sp
+import json
+import yaml
 from ..core.base_engine import BaseCalibratorEngine
 from ..core.base_camera import BaseCamera
 from ..core.base_target import BaseTargetDetector
@@ -259,3 +261,65 @@ class MonoCalibratorEngine(BaseCalibratorEngine):
                 break
 
         cv2.destroyAllWindows()
+
+
+    # ================= 补充在 MonoCalibratorEngine 类的最后 =================
+
+    def save_results(self, filepath: str, save_extrinsics: bool = False):
+        """
+        将单目标定结果保存到 JSON 或 YAML 文件中。
+        """
+        calib_data = {
+            "camera": self.camera.to_dict(),
+            "stats": {
+                "valid_frames": len(self.detections),
+            }
+        }
+
+        # 外参通常很大，默认不保存，调试需要时可以开启
+        if save_extrinsics:
+            ext_list = []
+            for det, ext in zip(self.detections, self.extrinsics):
+                ext_list.append({
+                    "frame_id": int(det.get("frame_id", -1)),
+                    "path": str(det.get("path", "")),
+                    "extrinsic": ext.tolist()
+                })
+            calib_data["extrinsics"] = ext_list
+
+        ext = os.path.splitext(filepath)[-1].lower()
+        if ext in ['.yaml', '.yml']:
+            with open(filepath, 'w', encoding='utf-8') as f:
+                yaml.dump(calib_data, f, default_flow_style=False, allow_unicode=True, sort_keys=False)
+        else:
+            with open(filepath, 'w', encoding='utf-8') as f:
+                json.dump(calib_data, f, indent=4, ensure_ascii=False)
+
+        print(f"✅ 单目标定结果已保存至: {filepath}")
+
+    def load_results(self, filepath: str):
+        """
+        从文件动态加载单目标定结果
+        """
+        if not os.path.exists(filepath):
+            raise FileNotFoundError(f"找不到标定结果文件: {filepath}")
+
+        ext = os.path.splitext(filepath)[-1].lower()
+        if ext in ['.yaml', '.yml']:
+            with open(filepath, 'r', encoding='utf-8') as f:
+                data = yaml.safe_load(f)
+        else:
+            with open(filepath, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+
+        from ..core.base_camera import create_camera_from_dict
+
+        # 魔法在这：自动识别模型并创建实例
+        self.camera = create_camera_from_dict(data["camera"])
+
+        print(f"✅ 成功从 {filepath} 加载单目标定参数！")
+        print(f"   -> 自动识别相机模型: {self.camera.__class__.__name__}")
+
+        if "extrinsics" in data:
+            self.extrinsics = [np.array(item["extrinsic"], dtype=np.float64) for item in data["extrinsics"]]
+            self.detections = [{"frame_id": item["frame_id"], "path": item["path"]} for item in data["extrinsics"]]
